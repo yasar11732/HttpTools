@@ -8,7 +8,7 @@
  * This code is copyrighted under Creative Commons Attribution-ShareAlike 3.0 Unported
  * Copyright (c) Yaşar Arabacı http://creativecommons.org/licenses/by-sa/3.0/deed.en
  */
-package com.github.HttpStatusCodes;
+package com.github.yasar.HttpTools;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -37,7 +37,7 @@ import java.util.logging.Logger;
  *
  * @author Yaşar Arabacı <yasar11732@gmail.com>
  */
-public class HttpStatusCodes {
+public class HttpStatusChecker {
 
     private BufferedReader input;
     private int numThreads;
@@ -51,14 +51,14 @@ public class HttpStatusCodes {
      */
     public static void main(String[] args) {
         for (String arg : args) {
-            HttpStatusCodes app;
+            HttpStatusChecker app;
             try {
-                app = new HttpStatusCodes(new FileReader(new File(arg)), 16);
+                app = new HttpStatusChecker(new FileReader(new File(arg)), 16);
             } catch (FileNotFoundException e) {
                 System.err.println("File doesn't exist: " + e.getMessage());
                 continue;
             }
-            Map<String, String> results = app.get();
+            Map<String, String> results = app.runCheck();
             for (String key : results.keySet()) {
                 System.out.println(key + " " + results.get(key));
             }
@@ -71,11 +71,11 @@ public class HttpStatusCodes {
     private class UrlAndCode {
 
         public String url;
-        public String statusCode;
+        public String status;
 
         public UrlAndCode(String url, String statusCode) {
             this.url = url;
-            this.statusCode = statusCode;
+            this.status = statusCode;
         }
     }
 
@@ -83,12 +83,12 @@ public class HttpStatusCodes {
      * This class gets executed in a seperate Thread to
      * get status of a single url
      */
-    private class getStatus implements Callable<UrlAndCode> {
+    private class GetStatus implements Callable<UrlAndCode> {
 
         private String location;
         private int timeout;
 
-        public getStatus(String location, int timeout) {
+        public GetStatus(String location, int timeout) {
             this.location = location;
             this.timeout = timeout;
         }
@@ -109,13 +109,12 @@ public class HttpStatusCodes {
             }
             
             HttpURLConnection con = null;
-            Integer statusCode;
             try {
                 con = (HttpURLConnection) url.openConnection();
                 HttpURLConnection.setFollowRedirects(false);
                 con.setConnectTimeout(timeout * 1000);
                 con.setRequestMethod("HEAD");
-                statusCode = new Integer(con.getResponseCode());
+                return new UrlAndCode(location, new Integer(con.getResponseCode()).toString());
             } catch (Exception e) {
                 /*
                  * Exception will be returned along with url, otherwise we can't
@@ -128,32 +127,31 @@ public class HttpStatusCodes {
                     con.disconnect();
                 }
             }
-            return new UrlAndCode(location, statusCode.toString());
         }
     }
     /**
      * 
      * @param r Urls will be read from this Reader line by line
-     * @param i number of threads to use
+     * @param numberOfThreads number of threads to use
      */
-    public HttpStatusCodes(Reader r, int i) {
+    public HttpStatusChecker(Reader r, int numberOfThreads) {
         input = new BufferedReader(r);
-        numThreads = i;
+        numThreads = numberOfThreads;
     }
     
     /**
      * see {@link #HttpStatusCodes(Reader,int) HttpStatusCodes}. Timeout will
      * default to 4 seconds.
      */
-    public HttpStatusCodes(Reader r) {
+    public HttpStatusChecker(Reader r) {
         this(r, 4);
     }
     
     /** 
      * calls {@link #get(int) get} with default timeout of 2 seconds.
      */
-    public Map<String, String> get() {
-        return get(2);
+    public Map<String, String> runCheck() {
+        return runCheck(2);
     }
     
     /**
@@ -162,7 +160,7 @@ public class HttpStatusCodes {
      * @param timeout How many seconds to wait before getting a response from connection.
      * @return A Map of <String,String> keys hold urls, values hold status codes or error messages.
      */
-    public Map<String, String> get(int timeout) {
+    public Map<String, String> runCheck(int timeout) {
         Map<String, String> results = new HashMap<>();
         ExecutorService threadPool = Executors.newFixedThreadPool(numThreads);
         CompletionService<UrlAndCode> pool = new ExecutorCompletionService<>(threadPool);
@@ -171,11 +169,11 @@ public class HttpStatusCodes {
 
         try {
             while ((line = input.readLine()) != null) {
-                pool.submit(new getStatus(line, timeout));
+                pool.submit(new GetStatus(line, timeout));
                 numWorks++;
             }
         } catch (IOException e) {
-            Logger.getLogger(HttpStatusCodes.class.getName()).log(Level.SEVERE, null, e);
+            Logger.getLogger(HttpStatusChecker.class.getName()).log(Level.SEVERE, null, e);
             threadPool.shutdown();
             return null;
         } finally {
@@ -186,7 +184,7 @@ public class HttpStatusCodes {
                  * Closing the input stream is not critical for us, will log
                  * and continue
                  */
-                Logger.getLogger(HttpStatusCodes.class.getName()).log(Level.SEVERE, null, e);
+                Logger.getLogger(HttpStatusChecker.class.getName()).log(Level.SEVERE, null, e);
             }
         }
         
@@ -198,11 +196,11 @@ public class HttpStatusCodes {
             try {
                 result = pool.take().get();
             } catch (InterruptedException | ExecutionException e) {
-                Logger.getLogger(HttpStatusCodes.class.getName()).log(Level.SEVERE, null, e);
+                Logger.getLogger(HttpStatusChecker.class.getName()).log(Level.SEVERE, null, e);
                 threadPool.shutdown();
                 return null;
             }
-            results.put(result.url, result.statusCode);
+            results.put(result.url, result.status);
             numWorks--;
             // Uncomment for debugging
             // System.out.println(numWorks + " jobs remaining.");
