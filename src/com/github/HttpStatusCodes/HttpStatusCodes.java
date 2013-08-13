@@ -20,6 +20,7 @@ import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletionService;
 import java.util.concurrent.ExecutionException;
@@ -57,7 +58,7 @@ public class HttpStatusCodes {
                 System.err.println("File doesn't exist: " + e.getMessage());
                 continue;
             }
-            HashMap<String, String> results = app.get();
+            Map<String, String> results = app.get();
             for (String key : results.keySet()) {
                 System.out.println(key + " " + results.get(key));
             }
@@ -151,7 +152,7 @@ public class HttpStatusCodes {
     /** 
      * calls {@link #get(int) get} with default timeout of 2 seconds.
      */
-    public HashMap<String, String> get() {
+    public Map<String, String> get() {
         return get(2);
     }
     
@@ -159,10 +160,10 @@ public class HttpStatusCodes {
      * When this method is invoked, urls will be distributed among worker threads
      * to be connected. After all urls have been tried, this method will return.
      * @param timeout How many seconds to wait before getting a response from connection.
-     * @return A HashMap of <String,String> keys hold urls, values hold status codes or error messages.
+     * @return A Map of <String,String> keys hold urls, values hold status codes or error messages.
      */
-    public HashMap<String, String> get(int timeout) {
-        HashMap<String, String> results = new HashMap<>();
+    public Map<String, String> get(int timeout) {
+        Map<String, String> results = new HashMap<>();
         ExecutorService threadPool = Executors.newFixedThreadPool(numThreads);
         CompletionService<UrlAndCode> pool = new ExecutorCompletionService<>(threadPool);
         String line;
